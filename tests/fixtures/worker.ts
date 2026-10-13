@@ -10,6 +10,14 @@ import { DurableObject } from 'cloudflare:workers';
 
 /*****************************************************************************************************************/
 
+// The runtime reads Workflow classes from the main module, as it does Durable Objects, so the test Workflow is
+// re-exported here from the file that defines it.
+export { Echo } from './echo';
+
+export type { EchoOutput, EchoParams } from './echo';
+
+/*****************************************************************************************************************/
+
 export type StepEvent = 'started' | 'succeeded' | 'failed';
 
 /*****************************************************************************************************************/

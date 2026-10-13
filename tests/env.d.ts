@@ -19,6 +19,9 @@ declare namespace Cloudflare {
     // the top of the file: a top level import would make this a module, and the
     // Cloudflare namespace augmentation would stop being global.
     RUN: DurableObjectNamespace<import('./fixtures/worker').Run>;
+    // Left with unknown params, exactly as `wrangler types` writes a Workflow
+    // binding, so the harness meets the same binding type a project would.
+    ECHO: Workflow;
   }
 }
 

@@ -48,4 +48,15 @@
       },
     ],
   },
+  // A Workflow that reports the params it was created with, so tests can
+  // pin how the real binding behaves: which ids it accepts, what a repeated
+  // id does, and how params cross into an instance. Like the Durable Object
+  // above, its class is read from the main module.
+  "workflows": [
+    {
+      "name": "echo",
+      "binding": "ECHO",
+      "class_name": "Echo",
+    },
+  ],
 }
