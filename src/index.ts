@@ -98,4 +98,13 @@ export type {
   RetryPolicy,
 } from './retry/index';
 
+export { defineWorkflow } from './workflows/index';
+
+export type {
+  DefineWorkflowOptions,
+  RunOptions,
+  WorkflowContract,
+  WorkflowParams,
+} from './workflows/index';
+
 /*****************************************************************************************************************/
