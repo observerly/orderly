@@ -10,7 +10,11 @@ import { env } from 'cloudflare:workers';
 
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
+import type { DefineWorkflowOptions } from '../src/index';
+
 import { settled } from './fixtures/settled';
+
+import type { Closedown } from './fixtures/workflow';
 
 /*****************************************************************************************************************/
 
@@ -139,7 +143,8 @@ describe('the Workflow binding creating by an id that exists', () => {
 
 /*****************************************************************************************************************/
 
-type Closedown = { observatory: string };
+// The selector defineWorkflow() takes for a Workflow whose params are a Closedown.
+type Selector = DefineWorkflowOptions<Closedown>['workflow'];
 
 /*****************************************************************************************************************/
 
@@ -147,19 +152,19 @@ type Closedown = { observatory: string };
 // `wrangler types` writes them, or wider than a schema's, and refused only when they are unrelated to it.
 describe('the Workflow binding as a type', () => {
   it('accepts a binding with unknown params where a typed one is wanted', () => {
-    expectTypeOf(env.ECHO).toExtend<Workflow<Closedown>>();
+    expectTypeOf<() => Cloudflare.Env['ECHO']>().toExtend<Selector>();
   });
 
   it('accepts a binding whose params are wider', () => {
-    expectTypeOf<Workflow<Closedown | null>>().toExtend<Workflow<Closedown>>();
+    expectTypeOf<() => Workflow<Closedown | null>>().toExtend<Selector>();
 
-    expectTypeOf<Workflow<object>>().toExtend<Workflow<Closedown>>();
+    expectTypeOf<() => Workflow<object>>().toExtend<Selector>();
   });
 
   it('refuses a binding whose params are unrelated', () => {
-    expectTypeOf<Workflow<{ telescope: number }>>().not.toExtend<Workflow<Closedown>>();
+    expectTypeOf<() => Workflow<{ telescope: number }>>().not.toExtend<Selector>();
 
-    expectTypeOf<Workflow<string>>().not.toExtend<Workflow<Closedown>>();
+    expectTypeOf<() => Workflow<string>>().not.toExtend<Selector>();
   });
 });
 
