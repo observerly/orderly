@@ -6,7 +6,7 @@
 
 /*****************************************************************************************************************/
 
-import type { StandardSchema } from '../../src/index';
+import type { Envelope, StandardSchema } from '../../src/index';
 
 /*****************************************************************************************************************/
 
@@ -109,5 +109,34 @@ export const stubbed = <Params = Closedown>(options: StubbedOptions = {}) => {
 // The environment is the platform's own type, read and never written: its bindings are what make it mutable.
 // oxlint-disable-next-line typescript/prefer-readonly-parameter-types
 export const echoing = (bindings: Cloudflare.Env): Workflow => bindings.ECHO;
+
+/*****************************************************************************************************************/
+
+// A queue that records what it was handed, because the delay an envelope is held back by, and the options it is
+// sent with, are not observable through the real binding.
+export const recording = <Params = Closedown>() => {
+  const sends: { body: Envelope<Params>; options: QueueSendOptions | undefined }[] = [];
+
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  const queue = {
+    // Recorded as given, so the envelope and options a send was handed are exactly what a test reads back.
+    // oxlint-disable-next-line typescript/prefer-readonly-parameter-types
+    send: (body: Envelope<Params>, options?: Readonly<QueueSendOptions>) => {
+      sends.push({ body, options });
+
+      return Promise.resolve();
+    },
+    sendBatch: () => Promise.resolve(),
+  } as unknown as Queue<Envelope<Params>>;
+
+  return { queue, sends };
+};
+
+/*****************************************************************************************************************/
+
+// The real queue, selected from the environment a run is given.
+// The environment is the platform's own type, read and never written: its bindings are what make it mutable.
+// oxlint-disable-next-line typescript/prefer-readonly-parameter-types
+export const queued = (bindings: Cloudflare.Env): Queue => bindings.QUEUE;
 
 /*****************************************************************************************************************/

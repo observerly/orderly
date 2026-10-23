@@ -10,6 +10,7 @@ export { defineWorkflow } from './contract';
 
 export type {
   DefineWorkflowOptions,
+  Envelope,
   RunOptions,
   WorkflowContract,
   WorkflowParams,

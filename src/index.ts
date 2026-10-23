@@ -102,6 +102,7 @@ export { defineWorkflow } from './workflows/index';
 
 export type {
   DefineWorkflowOptions,
+  Envelope,
   RunOptions,
   WorkflowContract,
   WorkflowParams,
