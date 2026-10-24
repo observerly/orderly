@@ -1,5 +1,17 @@
 # @observerly/orderly
 
+## 0.4.0
+
+### Minor Changes
+
+- [#75](https://github.com/observerly/orderly/pull/75) [`1007ab0`](https://github.com/observerly/orderly/commit/1007ab01c4147a00bc5bb1f0094e44ea1bfc0294) Thanks [@michealroberts](https://github.com/michealroberts)! - Add defineWorkflow(): declare a Cloudflare Workflow's params and schema once, then start it with `run(env, params, { id })`, which validates the params, starts one instance by the id given or a fresh UUID, and resolves with that id. A run by an id that has already started starts nothing. Add the WorkflowParams type to type the Workflow's own WorkflowEntrypoint from the contract.
+
+- [#78](https://github.com/observerly/orderly/pull/78) [`e4dd64e`](https://github.com/observerly/orderly/commit/e4dd64e81779a76583a6f1c97f663249bfbf8d6d) Thanks [@michealroberts](https://github.com/michealroberts)! - Add the `until` option to preview(): walk a schedule up to an instant, inclusive, as between() closes its window, with or without a count. `take` is now optional; given both, whichever ends the walk first wins, and given neither, preview() throws a RangeError.
+
+- [#77](https://github.com/observerly/orderly/pull/77) [`ec9343f`](https://github.com/observerly/orderly/commit/ec9343f5510cd8d8b8507853b1f1cd18eb385f22) Thanks [@michealroberts](https://github.com/michealroberts)! - Add `consumer(options)` to defineWorkflow(): the queue handler for a Workflow's queue, which starts one instance per envelope by its id and never a second, so a message delivered again is acknowledged without starting more. Anything on the queue that is not an envelope, or whose params fail the Workflow's schema, is rejected. Every other consumer option keeps working, the retry policy first among them.
+
+- [#76](https://github.com/observerly/orderly/pull/76) [`6bfb6fe`](https://github.com/observerly/orderly/commit/6bfb6fe6372bed1d732593302a7561dd5c732b11) Thanks [@michealroberts](https://github.com/michealroberts)! - Add `run(env, params, { at, id })` to defineWorkflow(): hold a Workflow's run in its queue until an instant, rounded up to the next whole second, and resolve with the instance's id as soon as the run is queued. The queue is selected with the new `queue` option, and carries an Envelope of the id and the parsed params. A bad id, an invalid Date, or a contract with no queue is refused before the params are parsed. Add the Envelope type.
+
 ## 0.3.0
 
 ### Minor Changes

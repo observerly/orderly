@@ -1,6 +1,6 @@
 {
   "name": "@observerly/orderly",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Single file, no pushing. Type-safe middleware that brings a little bit of order to Cloudflare Queues.",
   "keywords": [
     "cloudflare",
