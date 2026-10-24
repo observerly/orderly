@@ -235,8 +235,104 @@ instant beside `delaySeconds` is refused too, as is an invalid `Date`, each with
 Work further off than a day belongs to a schedule and a cron trigger. Once a day, ask the schedule
 for the occurrences within the coming day and hand each to the queue with `at`, a message a job.
 From there the queue is the clock: the consumer starts one Workflow per message as it lands, and
-the Workflow does the work at once rather than sleeping until it is due. [The Sun](#the-sun) shows
-the whole arrangement for an observatory that closes down at sunrise.
+the Workflow does the work at once rather than sleeping until it is due. [Workflows](#workflows)
+packages that arrangement, and [The Sun](#the-sun) shows it whole for an observatory that closes
+down at sunrise.
+
+## Workflows
+
+A Cloudflare Workflow is declared once, and then run either now or at an instant, held in its
+queue until the instant arrives. The Workflow class stays the platform's own `WorkflowEntrypoint`:
+orderly validates the params, starts the instance by its id, and owns the queue in between.
+
+```ts
+// contracts/closedown.ts
+import { defineWorkflow, type WorkflowParams } from '@observerly/orderly';
+
+import { z } from 'zod';
+
+export const closedown = defineWorkflow({
+  name: 'closedown',
+  schema: z.object({ observatory: z.string() }),
+  workflow: env => env.CLOSEDOWN,
+  queue: env => env.CLOSEDOWNS,
+});
+
+// The params are named once, in the schema, and read from the contract to type the entrypoint.
+export type Params = WorkflowParams<typeof closedown>;
+```
+
+```ts
+// worker.ts
+import { withFixedRetryBackoff } from '@observerly/orderly';
+
+import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers';
+
+import { closedown, type Params } from './contracts/closedown';
+
+export default {
+  async fetch(request, env) {
+    // Now: the instance starts before run() resolves.
+    const id = await closedown.run(env, { observatory: 'greenwich' });
+
+    // At an instant: the run waits in the queue, and run() resolves as soon as it is queued.
+    await closedown.run(
+      env,
+      { observatory: 'greenwich' },
+      { at: new Date('2026-01-15T08:06:00Z'), id: 'greenwich-2026-01-15' },
+    );
+
+    return Response.json({ id }, { status: 202 });
+  },
+
+  // Each run that lands starts one instance by its id, and never a second.
+  queue: closedown.consumer({ retry: withFixedRetryBackoff({ delaySeconds: 30, limit: 3 }) }),
+} satisfies ExportedHandler<Cloudflare.Env>;
+
+export class Closedown extends WorkflowEntrypoint<Cloudflare.Env, Params> {
+  override async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
+    await step.do('park the mount', () => park(event.payload.observatory));
+  }
+}
+```
+
+```jsonc
+// wrangler.jsonc
+{
+  "queues": {
+    "producers": [{ "binding": "CLOSEDOWNS", "queue": "closedowns" }],
+    "consumers": [{ "queue": "closedowns", "max_batch_size": 10, "max_retries": 3 }],
+  },
+  "workflows": [{ "name": "closedown", "binding": "CLOSEDOWN", "class_name": "Closedown" }],
+}
+```
+
+`run()` resolves with the instance's id: the one given, or a fresh UUID. An id is at most a hundred
+characters of letters, digits, underscores and hyphens, never a hyphen first, so a colon is refused.
+A bad id, an invalid `Date`, or an instant on a contract with no queue is refused with a
+`RangeError` before the params are parsed, and params that fail the schema start nothing. The
+instant is held back exactly as `send()` holds a message back: rounded up, and never more than a
+day ahead.
+
+Worth knowing:
+
+- **Params cross by structured clone,** on both paths, so a `Date` arrives as a `Date`. Never
+  round-trip them through JSON.
+- **A queued run is capped at the queue's message size,** 128 KB today, envelope included.
+- **An id lives as long as the platform retains its instance,** a failed one included, and a run
+  by that id starts nothing until then. Running it again takes `restart()` on the instance, or a
+  new id.
+- **A run without an id is not deduplicated end to end.** A caller that retries `run()` mints a new
+  UUID each time, so pass an id derived from what the run is for, such as the occurrence.
+- **The queue belongs to the Workflow.** Its consumer accepts the envelopes `run()` sends and
+  rejects everything else, so give it a queue of its own.
+- **A missed cron trigger is not replayed.** Runs a skipped trigger would have queued are never
+  queued.
+- **The compiler accepts a binding or queue with unknown or wider params,** as `wrangler types`
+  writes them, and refuses only params unrelated to the schema's. It is not a stricter check than
+  that.
+- **`run()` without `at` bypasses the queue,** so there is no retry policy and no dead letter queue:
+  a failure rejects to the caller. `at: new Date()` queues a run for now, retries included.
 
 ## Schedules
 
@@ -272,6 +368,7 @@ const hourly: Schedule = { next: after => new Date(after.getTime() + 3_600_000) 
 | `exclude(mornings, christmas)`                                             | Every occurrence of the first, less those the second names exactly.                                                                                           |
 | `between(hourly, { from, until })`                                         | Only within the window: nothing before it opens or after it closes, both ends inclusive, either open.                                                         |
 | `preview(schedule, { after, take: 5 })`                                    | A dry run: the next five occurrences, as Dates.                                                                                                               |
+| `preview(schedule, { after, until })`                                      | A dry run up to an instant, inclusive, with or without a count: whichever ends the walk first.                                                                |
 
 ### Instants & Clock Cadences
 
@@ -381,19 +478,18 @@ years.
 
 A queue holds a message back a day at most, and outside the polar circles a day holds a sunrise:
 one most days, none through a polar night, and now and then two, when sunrise drifts across
-midnight UTC. So a cron trigger that runs once a day can hand the coming day's sunrises to the
-queue, and the queue delivers each on time:
+midnight UTC. So a cron trigger that runs once a day can run the Workflow at each of the coming
+day's sunrises, every run held in the Workflow's queue until the Sun is up:
 
 ```ts
 // worker.ts
 import {
   add,
-  between,
-  defineQueue,
+  defineWorkflow,
   preview,
   sunrise,
   withFixedRetryBackoff,
-  type QueueBody,
+  type WorkflowParams,
 } from '@observerly/orderly';
 
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers';
@@ -402,35 +498,40 @@ import { z } from 'zod';
 
 const greenwich = { latitude: 51.4769, longitude: -0.0005, elevation: 46 };
 
-const closedowns = defineQueue({
-  name: 'closedowns',
+const closedown = defineWorkflow({
+  name: 'closedown',
   schema: z.object({ observatory: z.string() }),
+  workflow: env => env.CLOSEDOWN,
+  queue: env => env.CLOSEDOWNS,
 });
 
-type Payload = QueueBody<typeof closedowns>;
+type Params = WorkflowParams<typeof closedown>;
 
 export default {
-  // Each midnight UTC, a cron trigger hands the sunrises of the coming day to the queue.
+  // Each midnight UTC, a cron trigger runs the Workflow at every sunrise of the coming day. The id
+  // is derived from the occurrence, so a trigger that runs twice still closes the observatory once.
   async scheduled(controller, env) {
     const now = new Date(controller.scheduledTime);
 
-    const within = between(sunrise(greenwich), { until: add(now, { days: 1 }) });
-
-    for (const at of preview(within, { after: now, take: 2 })) {
-      await closedowns.producer(env.CLOSEDOWNS).send({ observatory: 'greenwich' }, { at });
+    for (const at of preview(sunrise(greenwich), { after: now, until: add(now, { days: 1 }) })) {
+      await closedown.run(
+        env,
+        { observatory: 'greenwich' },
+        { at, id: `greenwich-${at.getTime()}` },
+      );
     }
   },
 
-  // Delivered at sunrise, each message starts the Workflow that closes the observatory down.
-  queue: (batch, env) =>
-    closedowns.consumer({
-      retry: withFixedRetryBackoff({ delaySeconds: 30, limit: 3 }),
-      handle: message => env.CLOSEDOWN.create({ params: message }),
-    })(batch),
+  // Delivered at sunrise, each run starts the Workflow that closes the observatory down, one start
+  // at a time.
+  queue: closedown.consumer({
+    retry: withFixedRetryBackoff({ delaySeconds: 30, limit: 3 }),
+    concurrency: 1,
+  }),
 } satisfies ExportedHandler<Cloudflare.Env>;
 
-export class Closedown extends WorkflowEntrypoint<Cloudflare.Env, Payload> {
-  override async run(event: WorkflowEvent<Payload>, step: WorkflowStep) {
+export class Closedown extends WorkflowEntrypoint<Cloudflare.Env, Params> {
+  override async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
     await step.do('park the mount', () => park(event.payload.observatory));
 
     await step.do('close the roof', () => close(event.payload.observatory));
@@ -444,11 +545,14 @@ export class Closedown extends WorkflowEntrypoint<Cloudflare.Env, Payload> {
   "triggers": { "crons": ["0 0 * * *"] },
   "queues": {
     "producers": [{ "binding": "CLOSEDOWNS", "queue": "closedowns" }],
-    "consumers": [{ "queue": "closedowns", "max_batch_size": 1, "max_retries": 3 }],
+    "consumers": [{ "queue": "closedowns", "max_batch_size": 10, "max_retries": 3 }],
   },
   "workflows": [{ "name": "closedown", "binding": "CLOSEDOWN", "class_name": "Closedown" }],
 }
 ```
+
+`preview()` walks to the instant given with `until`, both ends of the day included, so however many
+sunrises the day holds, none, one or two, each is run once.
 
 ### Combining Schedules
 
@@ -481,6 +585,7 @@ To see what a schedule will do, walk it:
 import { add, preview, subtract } from '@observerly/orderly';
 
 preview(schedule, { after: new Date(), take: 5 }); // the next five occurrences, as Dates
+preview(schedule, { after: now, until: add(now, { days: 1 }) }); // each in the day ahead, inclusive
 
 add(now, { hours: 1, minutes: 30 }); // a Duration: days, hours, minutes, seconds, milliseconds
 subtract(deadline, { days: 1 });
