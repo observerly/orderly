@@ -6,21 +6,19 @@
 
 /*****************************************************************************************************************/
 
-import type { BodySchema } from '../consumer/index';
+import type { BodySchema, CreateConsumerOptions } from '../consumer/index';
 
 import { parseBody } from '../consumer/validation';
 
 import { createProducer } from '../queues/index';
 
+import { consumeEnvelopes } from './consumer';
+
+import type { Envelope } from './envelope';
+
 import { instanceIdOf } from './identity';
 
 import { startInstance } from './start';
-
-/*****************************************************************************************************************/
-
-// What a run held until an instant travels through the Workflow's queue as: the id the instance will be started
-// by, and the params it will be started with, already parsed.
-export type Envelope<Params> = { id: string; params: Params };
 
 /*****************************************************************************************************************/
 
@@ -63,6 +61,16 @@ export interface WorkflowContract<Params, Env = Cloudflare.Env> {
   // type; they are read and never written.
   // oxlint-disable-next-line typescript/prefer-readonly-parameter-types
   run: (env: Env, params: Params, options?: RunOptions) => Promise<string>;
+  // The handler for the Workflow's queue, for the queue slot of the Worker's default export. Each envelope starts
+  // one instance by its id, and never a second. The envelope schema and the handler are the contract's own,
+  // which is why these options cannot carry either. Throws for a contract with no queue.
+  consumer: (
+    // The options carry a retry policy, middleware and observers, which are read and never written.
+    // oxlint-disable-next-line typescript/prefer-readonly-parameter-types
+    options: Omit<CreateConsumerOptions<Envelope<Params>>, 'handle' | 'schema'>,
+    // The batch is the platform's own type, read and never written: its messages' methods are what make it mutable.
+    // oxlint-disable-next-line typescript/prefer-readonly-parameter-types
+  ) => (batch: MessageBatch, env: Env) => Promise<void>;
 }
 
 /*****************************************************************************************************************/
@@ -170,6 +178,7 @@ export const defineWorkflow = <Params, Env = Cloudflare.Env>(
 
       return id;
     },
+    consumer: consumerOptions => consumeEnvelopes(options, consumerOptions),
   };
 };
 

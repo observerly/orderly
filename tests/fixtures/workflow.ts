@@ -6,6 +6,8 @@
 
 /*****************************************************************************************************************/
 
+import { createExecutionContext, createMessageBatch, getQueueResult } from 'cloudflare:test';
+
 import type { Envelope, StandardSchema } from '../../src/index';
 
 /*****************************************************************************************************************/
@@ -138,5 +140,41 @@ export const recording = <Params = Closedown>() => {
 // The environment is the platform's own type, read and never written: its bindings are what make it mutable.
 // oxlint-disable-next-line typescript/prefer-readonly-parameter-types
 export const queued = (bindings: Cloudflare.Env): Queue => bindings.QUEUE;
+
+/*****************************************************************************************************************/
+
+// A batch as the Workflow's queue delivers it, one message per body, each on its first attempt, numbered in order
+// so a test can name the messages it expects to be acknowledged or retried.
+export const delivered = (bodies: readonly unknown[]) =>
+  createMessageBatch(
+    'closedowns',
+    bodies.map((body, index) => ({
+      id: `message-${index}`,
+      timestamp: new Date(1_000),
+      body,
+      attempts: 1,
+    })),
+  );
+
+/*****************************************************************************************************************/
+
+// What the platform was told about each message in a delivered batch: the ids acknowledged, in order, and the
+// ids retried. Read once here, because the type-aware linter cannot see the types `cloudflare:test` declares.
+export const settlementsOf = async (
+  // The batch is the platform's own type, read and never written: its messages' methods are what make it mutable.
+  // oxlint-disable-next-line typescript/prefer-readonly-parameter-types
+  batch: MessageBatch,
+): Promise<{ acknowledged: string[]; retried: string[] }> => {
+  // oxlint-disable-next-line typescript/no-unsafe-assignment
+  const result: {
+    readonly explicitAcks: readonly string[];
+    readonly retryMessages: readonly { readonly msgId: string }[];
+  } = await getQueueResult(batch, createExecutionContext());
+
+  return {
+    acknowledged: result.explicitAcks.toSorted(),
+    retried: result.retryMessages.map(({ msgId }) => msgId),
+  };
+};
 
 /*****************************************************************************************************************/
