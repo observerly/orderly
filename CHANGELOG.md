@@ -1,5 +1,11 @@
 # @observerly/orderly
 
+## 0.4.1
+
+### Patch Changes
+
+- [#81](https://github.com/observerly/orderly/pull/81) [`aae7bae`](https://github.com/observerly/orderly/commit/aae7bae7705a70bbee0d2fcbc6525e59f0a4599b) Thanks [@michealroberts](https://github.com/michealroberts)! - Bump @observerly/astrometry to 0.73.0. sunrise() and sunset() now resolve to astrometry 0.73.0's instants, which can differ from 0.69.0's by a fraction of a second.
+
 ## 0.4.0
 
 ### Minor Changes
