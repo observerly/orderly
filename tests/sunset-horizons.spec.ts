@@ -54,13 +54,13 @@ const sunsetsFiledUnder = (after: Date, days: number, observer: Readonly<Observe
 
 describe('sunset() through polar day and night', () => {
   it('skips the polar day, when the Sun never sets', () => {
-    expect(sunset(TROMSO).next(new Date('2026-05-17T22:28:45.033Z'))).toStrictEqual(
-      new Date('2026-07-25T22:37:32.679Z'),
+    expect(sunset(TROMSO).next(new Date('2026-05-17T22:28:44.868Z'))).toStrictEqual(
+      new Date('2026-07-25T22:37:32.514Z'),
     );
   });
 
   it('skips the polar night, when the Sun never rises', () => {
-    expect(sunset(TROMSO).next(new Date('2026-11-27T10:42:15.550Z'))).toStrictEqual(
+    expect(sunset(TROMSO).next(new Date('2026-11-27T10:42:15.632Z'))).toStrictEqual(
       new Date('2027-01-15T11:12:52.299Z'),
     );
   });

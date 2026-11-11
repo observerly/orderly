@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@observerly/astrometry':
-        specifier: 0.69.0
-        version: 0.69.0
+        specifier: 0.73.0
+        version: 0.73.0
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: 0.18.5
@@ -559,8 +559,8 @@ packages:
     resolution: {integrity: sha512-6QEf6yqFbETdwGITKq57aYoPfX/3K8XFNwsAlx0C1M7o8cb79sv1M3w+tWuWvIcSbNqrLF7OD7YpZMVVz335hQ==}
     engines: {node: '>=20.0.0'}
 
-  '@observerly/astrometry@0.69.0':
-    resolution: {integrity: sha512-bgPl2sKbq+T1ixdDTThsYPFx7TgVLRnR2Xaab0CC+vxIEc+tKNolbEGQx+o1mmo2nMn74gMTZVR21Is5co/rKA==}
+  '@observerly/astrometry@0.73.0':
+    resolution: {integrity: sha512-nJKkZuiLnBlsTVQ6jNVhJmkihoqVwhWFtT91XXuyBUb2gOrxcbbnk1bfG6kS+It6NUaxUp1aYyatcoCRsviRow==}
 
   '@oxc-project/types@0.144.0':
     resolution: {integrity: sha512-nuhZIOLuI6TFQ32I/WnUx+SCPY7SdSKwgnFHydAuoS1+Z4BRcaP+RRJmGzl9lw+0OFF7UmaESf7KQRXaNLHypg==}
@@ -2408,7 +2408,7 @@ snapshots:
       tinyglobby: 0.2.17
       yaml: 2.9.0
 
-  '@observerly/astrometry@0.69.0':
+  '@observerly/astrometry@0.73.0':
     dependencies:
       '@types/geojson': 7946.0.16
 
